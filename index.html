@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Konnected Alarm Panel Pro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Howler.js for Audio Alerts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        ios: {
+                            bg: '#000000',
+                            card: 'rgba(28, 28, 30, 0.75)',
+                            cardLight: 'rgba(255, 255, 255, 0.8)',
+                            accent: '#0A84FF',
+                            green: '#30D158',
+                            red: '#FF453A',
+                            orange: '#FF9F0A',
+                            yellow: '#FFD60A',
+                            gray: '#8E8E93',
+                            gray6: '#1C1C1E',
+                            border: 'rgba(255, 255, 255, 0.12)',
+                            borderLight: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    backdropBlur: {
+                        'ios': '20px'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom iOS Glassmorphism and Scrollbars */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .glass {
+            background: rgba(28, 28, 30, 0.7);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-light {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        .ios-shadow {
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Alarm Flashing Animation */
+        @keyframes alarm-pulse {
+            0%, 100% { background-color: rgba(255, 69, 58, 0.15); }
+            50% { background-color: rgba(255, 69, 58, 0.45); }
+        }
+        .animate-alarm {
+            animation: alarm-pulse 1s infinite;
+        }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen flex items-center justify-center p-0 sm:p-4 overflow-x-hidden antialiased">
+
+    <!-- Container Frame (Mock iPhone or Responsive Screen) -->
+    <div id="appContainer" class="w-full max-w-md h-screen sm:h-[880px] sm:rounded-[50px] bg-black text-white relative flex flex-col justify-between overflow-hidden sm:border-[10px] sm:border-[#2c2c2e] ios-shadow">
+
+        <!-- iOS Status Bar / Dynamic Island -->
+        <div class="z-50 px-7 pt-3 pb-2 flex justify-between items-center text-xs font-semibold select-none bg-transparent">
+            <!-- Time -->
+            <span id="iosTime" class="tracking-tight text-sm font-semibold">9:41</span>
+
+            <!-- Dynamic Island -->
+            <div id="dynamicIsland" class="cursor-pointer transition-all duration-300 ease-out bg-black rounded-full px-3 py-1 border border-white/10 flex items-center gap-2 shadow-lg hover:scale-105" onclick="app.toggleDynamicIsland()">
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="islandDot"></div>
+                <span class="text-[11px] font-medium text-gray-300" id="islandText">Konnected Pro • Online</span>
+            </div>
+
+            <!-- Status Icons -->
+            <div class="flex items-center gap-1.5 text-xs">
+                <i data-lucide="wifi" class="w-3.5 h-3.5 text-white"></i>
+                <i data-lucide="battery-charging" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+        </div>
+
+        <!-- iOS Push Notification Banner Container -->
+        <div id="notificationContainer" class="absolute top-12 left-3 right-3 z-50 pointer-events-none flex flex-col gap-2"></div>
+
+        <!-- MAIN SCROLLABLE CONTENT AREA -->
+        <div id="contentArea" class="flex-1 overflow-y-auto hide-scrollbar px-4 pt-2 pb-24 space-y-5">
+            
+            <!-- HOME TAB -->
+            <div id="tab-home" class="tab-content space-y-5">
+                
+                <!-- Header / Panel Info -->
+                <div class="flex justify-between items-end pt-2">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Konnected Alarm Pro</p>
+                        <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                            Security System
+                            <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">12 Zones</span>
+                        </h1>
+                    </div>
+                    <button onclick="app.toggleDevicePowerModal()" class="p-2 rounded-full glass hover:bg-white/10 transition">
+                        <i data-lucide="cpu" class="w-5 h-5 text-gray-300"></i>
+                    </button>
+                </div>
+
+                <!-- Main Security State Card -->
+                <div id="securityCard" class="glass rounded-3xl p-5 border transition-all duration-500 relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-3">
+                            <div id="stateIconBg" class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 transition-colors duration-300">
+                                <i id="stateIcon" data-lucide="shield-check" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 font-medium">System State</p>
+                                <h2 id="stateTitle" class="text-xl font-bold text-white tracking-wide">Disarmed</h2>
+                            </div>
+                        </div>
+                        <span id="armBadge" class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                            Ready to Arm
+                        </span>
+                    </div>
+
+                    <!-- Mode Selectors -->
+                    <div class="grid grid-cols-4 gap-2 mt-4">
+                        <button onclick="app.requestArmState('disarmed')" class="arm-btn py-2.5 px-1 rounded-xl glass border border-white/5 flex flex-col items-center justify-center gap-1 hover:bg-white/10 transition active:scale-95 text-emerald-400" data-mode="disarmed">
+                            <i data-lucide="shield-off" class="w-5 h-5"></i>
+                            <span class="text-[11px] font-medium">Off</span>
+                        </button>
+                        <button onclick="app.requestArmState('stay')" class="arm-btn py-2.5 px-1 rounded-xl glass border border-white/5 flex flex-col items-center justify-center gap-1 hover:bg-white/10 transition active:scale-95 text-gray-300" data-mode="stay">
+                            <i data-lucide="home" class="w-5 h-5"></i>
+                            <span class="text-[11px] font-medium">Stay</span>
+                        </button>
+                        <button onclick="app.requestArmState('night')" class="arm-btn py-2.5 px-1 rounded-xl glass border border-white/5 flex flex-col items-center justify-center gap-1 hover:bg-white/10 transition active:scale-95 text-gray-300" data-mode="night">
+                            <i data-lucide="moon" class="w-5 h-5"></i>
+                            <span class="text-[11px] font-medium">Night</span>
+                        </button>
+                        <button onclick="app.requestArmState('away')" class="arm-btn py-2.5 px-1 rounded-xl glass border border-white/5 flex flex-col items-center justify-center gap-1 hover:bg-white/10 transition active:scale-95 text-gray-300" data-mode="away">
+                            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                            <span class="text-[11px] font-medium">Away</span>
+                        </button>
+                    </div>
+
+                    <!-- Alarm Trip Sound Warning / Panic Button -->
+                    <div class="mt-4 pt-3 border-t border-white/10 flex justify-between items-center text-xs">
+                        <span class="text-gray-400 flex items-center gap-1">
+                            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i> Audio Alerts Enabled
+                        </span>
+                        <button onclick="app.triggerPanic()" class="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 font-semibold active:scale-95 transition flex items-center gap-1">
+                            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Panic Siren
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hardware Panel Quick Status Bar -->
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="glass p-3 rounded-2xl flex flex-col items-center text-center">
+                        <i data-lucide="zap" class="w-4 h-4 text-amber-400 mb-1"></i>
+                        <span class="text-[10px] text-gray-400">Power</span>
+                        <span class="text-xs font-semibold text-gray-200" id="statPower">12V AUX</span>
+                    </div>
+                    <div class="glass p-3 rounded-2xl flex flex-col items-center text-center">
+                        <i data-lucide="battery-charging" class="w-4 h-4 text-emerald-400 mb-1"></i>
+                        <span class="text-[10px] text-gray-400">Battery</span>
+                        <span class="text-xs font-semibold text-gray-200" id="statBattery">13.8V Standby</span>
+                    </div>
+                    <div class="glass p-3 rounded-2xl flex flex-col items-center text-center">
+                        <i data-lucide="network" class="w-4 h-4 text-blue-400 mb-1"></i>
+                        <span class="text-[10px] text-gray-400">Network</span>
+                        <span class="text-xs font-semibold text-gray-200" id="statEth">ETH / PoE</span>
+                    </div>
+                    <div class="glass p-3 rounded-2xl flex flex-col items-center text-center">
+                        <i data-lucide="layers" class="w-4 h-4 text-purple-400 mb-1"></i>
+                        <span class="text-[10px] text-gray-400">Zones</span>
+                        <span class="text-xs font-semibold text-gray-200" id="statZoneSummary">12 Active</span>
+                    </div>
+                </div>
+
+                <!-- Relay / Quick Controls Grid -->
+                <div>
+                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2.5 px-1">Relays & Switched Outputs</h3>
+                    <div class="grid grid-cols-2 gap-3" id="relaysGrid">
+                        <!-- Relays populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Zone Quick Overview -->
+                <div>
+                    <div class="flex justify-between items-center mb-2.5 px-1">
+                        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Zone Monitor Preview</h3>
+                        <button onclick="app.switchTab('zones')" class="text-xs text-blue-400 hover:underline">View All 12</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2.5" id="homeZonePreview">
+                        <!-- Quick zone previews JS -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ZONES & SIMULATION TAB -->
+            <div id="tab-zones" class="tab-content space-y-4 hidden">
+                <div class="flex justify-between items-center pt-2">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Konnected 12-Zone Terminal</p>
+                        <h1 class="text-2xl font-bold tracking-tight text-white">Zone Monitor</h1>
+                    </div>
+                    <button onclick="app.clearAllTriggers()" class="text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-gray-300 hover:bg-white/10">
+                        Reset All Sensors
+                    </button>
+                </div>
+
+                <p class="text-xs text-gray-400 px-1">
+                    Tap any sensor tile below to <strong class="text-gray-200">simulate opening/tripping</strong> that physical zone on the Konnected Pro board.
+                </p>
+
+                <!-- Zone Grid (12 Zones) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="allZonesGrid">
+                    <!-- Dynamic Zones JS -->
+                </div>
+            </div>
+
+            <!-- AUTOMATIONS & RELAYS TAB -->
+            <div id="tab-automations" class="tab-content space-y-4 hidden">
+                <div class="pt-2">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Hardware Triggers</p>
+                    <h1 class="text-2xl font-bold tracking-tight text-white">Relays & Automations</h1>
+                </div>
+
+                <div class="glass p-4 rounded-3xl space-y-4">
+                    <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-4 h-4 text-blue-400"></i> Switched Relays & Alarm Output
+                    </h3>
+                    <p class="text-xs text-gray-400">
+                        Control low-voltage relays (Alarm Siren, Strobe, Garage Door Openers, Gates) connected to Konnected AUX/ALARM pins.
+                    </p>
+
+                    <div class="space-y-3" id="relayDetailedList">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Automation Rules -->
+                <div class="glass p-4 rounded-3xl space-y-3">
+                    <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                        <i data-lucide="git-fork" class="w-4 h-4 text-purple-400"></i> Local Board Automations
+                    </h3>
+                    
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                        <div class="space-y-0.5">
+                            <p class="text-sm font-medium text-white">Auto-Strobe on Intrusion</p>
+                            <p class="text-xs text-gray-400">Trigger OUT1 Strobe when perimeter zone breaks while armed</p>
+                        </div>
+                        <input type="checkbox" checked class="w-5 h-5 accent-blue-500 rounded cursor-pointer">
+                    </div>
+
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                        <div class="space-y-0.5">
+                            <p class="text-sm font-medium text-white">Siren Auto-Cutoff Delay</p>
+                            <p class="text-xs text-gray-400">Turn off physical siren 5 minutes after alarm trip</p>
+                        </div>
+                        <input type="checkbox" checked class="w-5 h-5 accent-blue-500 rounded cursor-pointer">
+                    </div>
+
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                        <div class="space-y-0.5">
+                            <p class="text-sm font-medium text-white">Chime Output on Entry</p>
+                            <p class="text-xs text-gray-400">Pulse AUX Relay for door chimes when disarmed</p>
+                        </div>
+                        <input type="checkbox" class="w-5 h-5 accent-blue-500 rounded cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- EVENT LOGS TAB -->
+            <div id="tab-logs" class="tab-content space-y-4 hidden">
+                <div class="flex justify-between items-center pt-2">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Konnected Activity Log</p>
+                        <h1 class="text-2xl font-bold tracking-tight text-white">Event Log</h1>
+                    </div>
+                    <button onclick="app.clearLogs()" class="text-xs px-3 py-1 rounded-full glass border border-white/10 text-gray-400 hover:text-white">
+                        Clear
+                    </button>
+                </div>
+
+                <!-- Event Stream -->
+                <div class="glass rounded-3xl p-4 space-y-3" id="logContainer">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
+            <!-- SETTINGS / BOARD SETUP TAB -->
+            <div id="tab-settings" class="tab-content space-y-4 hidden">
+                <div class="pt-2">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">System Setup</p>
+                    <h1 class="text-2xl font-bold tracking-tight text-white">Board Configuration</h1>
+                </div>
+
+                <!-- Hardware Info Card -->
+                <div class="glass p-4 rounded-3xl space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                            <i data-lucide="cpu" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Konnected Alarm Panel Pro</h3>
+                            <p class="text-xs text-gray-400">ESP32 Ethernet / Wi-Fi Hybrid Board</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-white/10">
+                        <div><span class="text-gray-400">IP Address:</span> <span class="font-mono text-gray-200">192.168.1.145</span></div>
+                        <div><span class="text-gray-400">MAC:</span> <span class="font-mono text-gray-200">80:7D:3A:42:1B:99</span></div>
+                        <div><span class="text-gray-400">Firmware:</span> <span class="text-gray-200">v3.1.2 Pro</span></div>
+                        <div><span class="text-gray-400">Protocol:</span> <span class="text-gray-200">ESPHome / REST API</span></div>
+                    </div>
+                </div>
+
+                <!-- Zone Type Mapping Settings -->
+                <div class="glass p-4 rounded-3xl space-y-3">
+                    <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                        <i data-lucide="sliders-horizontal" class="w-4 h-4 text-emerald-400"></i> Zone Hardware Setup
+                    </h3>
+                    <p class="text-xs text-gray-400">Configure circuit type (NO / NC) and delay timers for physical board terminals.</p>
+                    
+                    <div id="zoneConfigList" class="space-y-3 pt-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Security PIN Setup -->
+                <div class="glass p-4 rounded-3xl space-y-3">
+                    <h3 class="text-sm font-semibold text-white">Security PIN Settings</h3>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-300">Require PIN for Disarming</span>
+                        <input id="pinToggle" type="checkbox" checked class="w-5 h-5 accent-blue-500 rounded cursor-pointer">
+                    </div>
+                    <div class="flex items-center justify-between text-xs pt-1">
+                        <span class="text-gray-400">Current Security Passcode</span>
+                        <span class="font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">1234</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TAB BAR NAVIGATION (iOS Style) -->
+        <div class="z-40 glass border-t border-white/10 px-4 py-2.5 flex justify-around items-center rounded-b-[40px] sm:rounded-b-[40px]">
+            <button onclick="app.switchTab('home')" class="nav-tab active flex flex-col items-center gap-1 text-blue-400 transition" data-tab="home">
+                <i data-lucide="shield" class="w-5 h-5"></i>
+                <span class="text-[10px] font-medium">Home</span>
+            </button>
+            <button onclick="app.switchTab('zones')" class="nav-tab flex flex-col items-center gap-1 text-gray-400 hover:text-gray-200 transition" data-tab="zones">
+                <i data-lucide="grid" class="w-5 h-5"></i>
+                <span class="text-[10px] font-medium">Zones</span>
+            </button>
+            <button onclick="app.switchTab('automations')" class="nav-tab flex flex-col items-center gap-1 text-gray-400 hover:text-gray-200 transition" data-tab="automations">
+                <i data-lucide="zap" class="w-5 h-5"></i>
+                <span class="text-[10px] font-medium">Relays</span>
+            </button>
+            <button onclick="app.switchTab('logs')" class="nav-tab flex flex-col items-center gap-1 text-gray-400 hover:text-gray-200 transition" data-tab="logs">
+                <i data-lucide="clock" class="w-5 h-5"></i>
+                <span class="text-[10px] font-medium">Activity</span>
+            </button>
+            <button onclick="app.switchTab('settings')" class="nav-tab flex flex-col items-center gap-1 text-gray-400 hover:text-gray-200 transition" data-tab="settings">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+                <span class="text-[10px] font-medium">Setup</span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- PIN MODAL -->
+    <div id="pinModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden">
+        <div class="glass p-6 rounded-3xl w-80 text-center space-y-4 border border-white/15 shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 mx-auto">
+                <i data-lucide="lock" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-white">Enter Passcode</h3>
+                <p class="text-xs text-gray-400">Enter security PIN to disarm panel</p>
+            </div>
+            
+            <!-- Keypad Display -->
+            <div id="pinDots" class="flex justify-center gap-3 py-2">
+                <div class="w-3 h-3 rounded-full border border-gray-500 dot"></div>
+                <div class="w-3 h-3 rounded-full border border-gray-500 dot"></div>
+                <div class="w-3 h-3 rounded-full border border-gray-500 dot"></div>
+                <div class="w-3 h-3 rounded-full border border-gray-500 dot"></div>
+            </div>
+
+            <!-- Keypad Grid -->
+            <div class="grid grid-cols-3 gap-3 pt-2">
+                <button onclick="app.pressPin('1')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">1</button>
+                <button onclick="app.pressPin('2')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">2</button>
+                <button onclick="app.pressPin('3')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">3</button>
+                <button onclick="app.pressPin('4')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">4</button>
+                <button onclick="app.pressPin('5')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">5</button>
+                <button onclick="app.pressPin('6')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">6</button>
+                <button onclick="app.pressPin('7')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">7</button>
+                <button onclick="app.pressPin('8')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">8</button>
+                <button onclick="app.pressPin('9')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">9</button>
+                <button onclick="app.clearPin()" class="py-3 rounded-2xl bg-white/5 text-gray-400 font-semibold hover:bg-white/10 active:scale-95 text-xs">Clear</button>
+                <button onclick="app.pressPin('0')" class="py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 active:scale-95 text-lg">0</button>
+                <button onclick="app.closePinModal()" class="py-3 rounded-2xl bg-white/5 text-gray-400 font-semibold hover:bg-white/10 active:scale-95 text-xs">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Application State & Logic
+        class KonnectedApp {
+            constructor() {
+                this.armState = 'disarmed'; // disarmed, stay, night, away, tripped
+                this.enteredPin = '';
+                this.correctPin = '1234';
+                this.targetArmState = null;
+                
+                // 12 Hardware Zones Definition
+                this.zones = [
+                    { id: 1, name: "Front Entry Door", type: "contact", icon: "door-closed", state: "closed", bypassed: false, setup: "NC" },
+                    { id: 2, name: "Back Patio Sliding", type: "contact", icon: "door-closed", state: "closed", bypassed: false, setup: "NC" },
+                    { id: 3, name: "Living Room Motion", type: "motion", icon: "activity", state: "clear", bypassed: false, setup: "NO" },
+                    { id: 4, name: "Garage Interior Door", type: "contact", icon: "door-closed", state: "closed", bypassed: false, setup: "NC" },
+                    { id: 5, name: "Kitchen Glassbreak", type: "glass", icon: "disc", state: "clear", bypassed: false, setup: "NC" },
+                    { id: 6, name: "Primary Bedroom Window", type: "window", icon: "app-window", state: "closed", bypassed: false, setup: "NC" },
+                    { id: 7, name: "Basement Water Leak", type: "water", icon: "droplet", state: "dry", bypassed: false, setup: "NO" },
+                    { id: 8, name: "Hallway Smoke Alarm", type: "smoke", icon: "flame", state: "clear", bypassed: false, setup: "NO" },
+                    { id: 9, name: "Garage Overhead Door", type: "contact", icon: "shield", state: "closed", bypassed: false, setup: "NC" },
+                    { id: 10, name: "Office Motion Sensor", type: "motion", icon: "activity", state: "clear", bypassed: false, setup: "NO" },
+                    { id: 11, name: "Utility CO Detector", type: "co", icon: "alert-octagon", state: "clear", bypassed: false, setup: "NO" },
+                    { id: 12, name: "Side Gate Contact", type: "contact", icon: "shield-alert", state: "closed", bypassed: true, setup: "NC" }
+                ];
+
+                // Switched Relays / AUX Outputs
+                this.relays = [
+                    { id: "OUT1", name: "High-Decibel Siren", active: false, icon: "volume-2" },
+                    { id: "OUT2", name: "Strobe Warning Light", active: false, icon: "lightbulb" },
+                    { id: "ALARM", name: "Garage Door Trigger", active: false, icon: "warehouse" },
+                    { id: "AUX", name: "Yard Floodlights", active: false, icon: "sun" }
+                ];
+
+                this.logs = [
+                    { time: this.getFormattedTime(), title: "System Initialized", desc: "Konnected Alarm Panel Pro online over PoE", type: "info" }
+                ];
+
+                this.audioBeep = null;
+            }
+
+            init() {
+                this.updateTime();
+                setInterval(() => this.updateTime(), 1000);
+                this.renderRelays();
+                this.renderZones();
+                this.renderLogs();
+                this.renderZoneConfigs();
+                this.updateSecurityUI();
+                lucide.createIcons();
+            }
+
+            getFormattedTime() {
+                const now = new Date();
+                return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+
+            updateTime() {
+                const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                document.getElementById('iosTime').innerText = timeStr;
+            }
+
+            // Navigation Switcher
+            switchTab(tabId) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.nav-tab').forEach(btn => {
+                    btn.classList.remove('text-blue-400');
+                    btn.classList.add('text-gray-400');
+                });
+
+                document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+                const activeBtn = document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.remove('text-gray-400');
+                    activeBtn.classList.add('text-blue-400');
+                }
+            }
+
+            // Arming Request Logic
+            requestArmState(targetState) {
+                const requirePin = document.getElementById('pinToggle').checked;
+
+                if (targetState === 'disarmed' && this.armState !== 'disarmed' && requirePin) {
+                    this.targetArmState = targetState;
+                    this.openPinModal();
+                } else {
+                    this.setArmState(targetState);
+                }
+            }
+
+            setArmState(newState) {
+                this.armState = newState;
+                this.updateSecurityUI();
+
+                let statusMsg = `System set to ${newState.toUpperCase()}`;
+                if (newState === 'disarmed') {
+                    statusMsg = "System Disarmed";
+                    // Silence alarms if active
+                    this.setRelayState("OUT1", false);
+                    this.setRelayState("OUT2", false);
+                }
+
+                this.addLog("Security Mode Changed", statusMsg, newState === 'disarmed' ? 'info' : 'warning');
+                this.showNotification("Security State Updated", statusMsg, "shield");
+            }
+
+            updateSecurityUI() {
+                const card = document.getElementById('securityCard');
+                const title = document.getElementById('stateTitle');
+                const badge = document.getElementById('armBadge');
+                const icon = document.getElementById('stateIcon');
+                const iconBg = document.getElementById('stateIconBg');
+
+                // Reset buttons
+                document.querySelectorAll('.arm-btn').forEach(btn => {
+                    btn.classList.remove('bg-blue-500/20', 'border-blue-500/40', 'text-blue-400', 'bg-emerald-500/20', 'text-emerald-400', 'bg-red-500/20', 'text-red-400');
+                    btn.classList.add('text-gray-300');
+                });
+
+                card.classList.remove('animate-alarm', 'border-red-500/50', 'border-emerald-500/30', 'border-amber-500/30');
+
+                if (this.armState === 'disarmed') {
+                    title.innerText = "Disarmed";
+                    badge.innerText = "Ready to Arm";
+                    badge.className = "text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium";
+                    iconBg.className = "w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400";
+                    icon.setAttribute('data-lucide', 'shield-check');
+                    card.classList.add('border-emerald-500/20');
+
+                    const btn = document.querySelector('.arm-btn[data-mode="disarmed"]');
+                    if (btn) btn.classList.add('bg-emerald-500/20', 'text-emerald-400');
+
+                } else if (this.armState === 'stay' || this.armState === 'night') {
+                    title.innerText = this.armState === 'stay' ? "Armed Stay" : "Armed Night";
+                    badge.innerText = "Perimeter Active";
+                    badge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium";
+                    iconBg.className = "w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400";
+                    icon.setAttribute('data-lucide', 'shield-amber');
+                    card.classList.add('border-amber-500/30');
+
+                    const btn = document.querySelector(`.arm-btn[data-mode="${this.armState}"]`);
+                    if (btn) btn.classList.add('bg-amber-500/20', 'text-amber-400');
+
+                } else if (this.armState === 'away') {
+                    title.innerText = "Armed Away";
+                    badge.innerText = "All Motion Active";
+                    badge.className = "text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium";
+                    iconBg.className = "w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400";
+                    icon.setAttribute('data-lucide', 'shield-alert');
+                    card.classList.add('border-blue-500/30');
+
+                    const btn = document.querySelector('.arm-btn[data-mode="away"]');
+                    if (btn) btn.classList.add('bg-blue-500/20', 'text-blue-400');
+
+                } else if (this.armState === 'tripped') {
+                    title.innerText = "ALARM TRIPPED!";
+                    badge.innerText = "Intrusion Detected";
+                    badge.className = "text-xs px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 font-bold animate-pulse";
+                    iconBg.className = "w-12 h-12 rounded-2xl bg-red-500/30 border border-red-500/50 flex items-center justify-center text-red-400 animate-bounce";
+                    icon.setAttribute('data-lucide', 'alert-triangle');
+                    card.classList.add('animate-alarm', 'border-red-500/60');
+                }
+
+                lucide.createIcons();
+            }
+
+            // PIN Keypad Management
+            openPinModal() {
+                this.enteredPin = '';
+                this.updatePinDots();
+                document.getElementById('pinModal').classList.remove('hidden');
+            }
+
+            closePinModal() {
+                document.getElementById('pinModal').classList.add('hidden');
+            }
+
+            pressPin(digit) {
+                if (this.enteredPin.length < 4) {
+                    this.enteredPin += digit;
+                    this.updatePinDots();
+                }
+
+                if (this.enteredPin.length === 4) {
+                    if (this.enteredPin === this.correctPin) {
+                        this.closePinModal();
+                        if (this.targetArmState) {
+                            this.setArmState(this.targetArmState);
+                        }
+                    } else {
+                        // Vibrate dot indicator animation
+                        this.showNotification("Access Denied", "Incorrect Security Passcode", "lock");
+                        this.clearPin();
+                    }
+                }
+            }
+
+            clearPin() {
+                this.enteredPin = '';
+                this.updatePinDots();
+            }
+
+            updatePinDots() {
+                const dots = document.querySelectorAll('#pinDots .dot');
+                dots.forEach((dot, idx) => {
+                    if (idx < this.enteredPin.length) {
+                        dot.classList.add('bg-blue-400', 'border-blue-400');
+                    } else {
+                        dot.classList.remove('bg-blue-400', 'border-blue-400');
+                    }
+                });
+            }
+
+            // Simulation & Sensor Triggering
+            toggleZoneTrigger(zoneId) {
+                const zone = this.zones.find(z => z.id === zoneId);
+                if (!zone) return;
+
+                if (zone.bypassed) {
+                    this.showNotification("Zone Bypassed", `${zone.name} is currently bypassed.`, "slash");
+                    return;
+                }
+
+                // Toggle logic
+                if (zone.type === 'contact' || zone.type === 'window') {
+                    zone.state = zone.state === 'closed' ? 'open' : 'closed';
+                } else if (zone.type === 'motion' || zone.type === 'glass' || zone.type === 'smoke' || zone.type === 'co') {
+                    zone.state = zone.state === 'clear' ? 'tripped' : 'clear';
+                } else if (zone.type === 'water') {
+                    zone.state = zone.state === 'dry' ? 'leak' : 'dry';
+                }
+
+                const isTripped = zone.state === 'open' || zone.state === 'tripped' || zone.state === 'leak';
+
+                this.addLog(`Zone ${zone.id} (${zone.name})`, `Sensor reported ${zone.state.toUpperCase()}`, isTripped ? 'warning' : 'info');
+                this.showNotification(`Zone ${zone.id}: ${zone.name}`, `Status: ${zone.state.toUpperCase()}`, isTripped ? 'alert-circle' : 'check-circle');
+
+                // Alarm Triggering Logic
+                if (isTripped && this.armState !== 'disarmed') {
+                    if (this.armState === 'stay' || this.armState === 'night') {
+                        // Trigger only perimeter zones in stay
+                        if (zone.type !== 'motion') {
+                            this.tripAlarmSystem(zone);
+                        }
+                    } else if (this.armState === 'away') {
+                        // All zones trip in away
+                        this.tripAlarmSystem(zone);
+                    }
+                }
+
+                this.renderZones();
+            }
+
+            clearAllTriggers() {
+                this.zones.forEach(z => {
+                    if (z.type === 'contact' || z.type === 'window') z.state = 'closed';
+                    if (z.type === 'motion' || z.type === 'glass' || z.type === 'smoke' || z.type === 'co') z.state = 'clear';
+                    if (z.type === 'water') z.state = 'dry';
+                });
+                this.renderZones();
+                this.showNotification("Sensors Reset", "All 12 zones set to secure state", "check");
+            }
+
+            toggleZoneBypass(zoneId) {
+                const zone = this.zones.find(z => z.id === zoneId);
+                if (zone) {
+                    zone.bypassed = !zone.bypassed;
+                    this.addLog("Zone Setting Updated", `${zone.name} Bypass set to ${zone.bypassed}`, "info");
+                    this.renderZones();
+                }
+            }
+
+            tripAlarmSystem(triggerZone) {
+                this.armState = 'tripped';
+                this.updateSecurityUI();
+                
+                // Turn on Siren & Strobe Relays
+                this.setRelayState("OUT1", true);
+                this.setRelayState("OUT2", true);
+
+                this.addLog("ALARM TRIPPED", `Intrusion detection on Zone ${triggerZone.id} (${triggerZone.name})`, "alarm");
+                this.showNotification("🚨 SECURITY ALARM", `Intrusion on Zone ${triggerZone.id}: ${triggerZone.name}`, "alert-triangle");
+                
+                // Audio Beep Warning
+                this.playAlarmBeep();
+            }
+
+            triggerPanic() {
+                this.tripAlarmSystem({ id: 0, name: "Manual Panic Switch" });
+            }
+
+            playAlarmBeep() {
+                // Web Audio API Synth Tone for Siren
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(880, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5);
+
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.5);
+                } catch (e) {
+                    console.log("Audio play blocked or unavailable.");
+                }
+            }
+
+            // Relay Controls
+            toggleRelay(relayId) {
+                const relay = this.relays.find(r => r.id === relayId);
+                if (relay) {
+                    relay.active = !relay.active;
+                    this.addLog("Relay Output Switch", `${relay.name} (${relay.id}) turned ${relay.active ? 'ON' : 'OFF'}`, "info");
+                    this.renderRelays();
+                }
+            }
+
+            setRelayState(relayId, state) {
+                const relay = this.relays.find(r => r.id === relayId);
+                if (relay) {
+                    relay.active = state;
+                    this.renderRelays();
+                }
+            }
+
+            // Render UI Components
+            renderRelays() {
+                const grid = document.getElementById('relaysGrid');
+                const detailedList = document.getElementById('relayDetailedList');
+                if (!grid) return;
+
+                grid.innerHTML = '';
+                this.relays.forEach(relay => {
+                    grid.innerHTML += `
+                        <div onclick="app.toggleRelay('${relay.id}')" class="glass p-3.5 rounded-2xl cursor-pointer border transition-all duration-300 flex items-center justify-between ${relay.active ? 'bg-blue-500/20 border-blue-500/40' : 'border-white/5 hover:bg-white/5'}">
+                            <div class="space-y-0.5">
+                                <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded ${relay.active ? 'bg-blue-500/30 text-blue-300' : 'bg-white/10 text-gray-400'}">${relay.id}</span>
+                                <p class="text-xs font-semibold text-white mt-1">${relay.name}</p>
+                            </div>
+                            <div class="w-8 h-8 rounded-full ${relay.active ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/50' : 'bg-white/10 text-gray-400'} flex items-center justify-center">
+                                <i data-lucide="${relay.icon}" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                if (detailedList) {
+                    detailedList.innerHTML = '';
+                    this.relays.forEach(relay => {
+                        detailedList.innerHTML += `
+                            <div class="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-xl ${relay.active ? 'bg-blue-500/20 text-blue-400' : 'bg-white/10 text-gray-400'} flex items-center justify-center">
+                                        <i data-lucide="${relay.icon}" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-bold text-white">${relay.name} <span class="text-[10px] text-gray-400 font-mono">(${relay.id})</span></p>
+                                        <p class="text-[11px] text-gray-400">${relay.active ? 'Circuit Closed (Active Output)' : 'Circuit Open (Standby)'}</p>
+                                    </div>
+                                </div>
+                                <button onclick="app.toggleRelay('${relay.id}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold ${relay.active ? 'bg-blue-500 text-white' : 'glass border border-white/10 text-gray-300 hover:bg-white/10'}">
+                                    ${relay.active ? 'Turn OFF' : 'Trigger'}
+                                </button>
+                            </div>
+                        `;
+                    });
+                }
+
+                lucide.createIcons();
+            }
+
+            renderZones() {
+                const homePreview = document.getElementById('homeZonePreview');
+                const allGrid = document.getElementById('allZonesGrid');
+
+                if (homePreview) {
+                    homePreview.innerHTML = '';
+                    // First 4 zones for home
+                    this.zones.slice(0, 4).forEach(zone => {
+                        const isTripped = zone.state === 'open' || zone.state === 'tripped' || zone.state === 'leak';
+                        homePreview.innerHTML += `
+                            <div onclick="app.toggleZoneTrigger(${zone.id})" class="glass p-3 rounded-2xl border transition cursor-pointer ${isTripped ? 'bg-red-500/20 border-red-500/40 text-red-300' : 'border-white/5'} flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="${zone.icon}" class="w-4 h-4 ${isTripped ? 'text-red-400' : 'text-gray-400'}"></i>
+                                    <span class="text-xs font-medium truncate max-w-[90px]">${zone.name}</span>
+                                </div>
+                                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded ${isTripped ? 'bg-red-500/30 text-red-200' : 'bg-emerald-500/10 text-emerald-400'}">
+                                    ${zone.state}
+                                </span>
+                            </div>
+                        `;
+                    });
+                }
+
+                if (allGrid) {
+                    allGrid.innerHTML = '';
+                    this.zones.forEach(zone => {
+                        const isTripped = zone.state === 'open' || zone.state === 'tripped' || zone.state === 'leak';
+                        allGrid.innerHTML += `
+                            <div class="glass p-3.5 rounded-2xl border ${isTripped ? 'bg-red-500/20 border-red-500/40' : 'border-white/5'} space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-xl ${isTripped ? 'bg-red-500/30 text-red-400' : 'bg-white/10 text-gray-300'} flex items-center justify-center">
+                                            <i data-lucide="${zone.icon}" class="w-4.5 h-4.5"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-xs font-bold text-white">Zone ${zone.id}: ${zone.name}</h4>
+                                            <p class="text-[10px] text-gray-400 uppercase tracking-wider">${zone.type} • ${zone.setup}</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-[10px] font-bold px-2 py-1 rounded-md uppercase ${isTripped ? 'bg-red-500/30 text-red-300 animate-pulse' : 'bg-emerald-500/15 text-emerald-400'}">
+                                        ${zone.bypassed ? 'BYPASSED' : zone.state}
+                                    </span>
+                                </div>
+                                <div class="flex gap-2 pt-1 border-t border-white/5 text-xs">
+                                    <button onclick="app.toggleZoneTrigger(${zone.id})" class="flex-1 py-1.5 rounded-lg glass hover:bg-white/10 text-center font-medium text-gray-200 text-[11px] active:scale-95 transition">
+                                        Simulate Trigger
+                                    </button>
+                                    <button onclick="app.toggleZoneBypass(${zone.id})" class="px-3 py-1.5 rounded-lg ${zone.bypassed ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'glass text-gray-400'} text-[11px] font-medium">
+                                        ${zone.bypassed ? 'Unbypass' : 'Bypass'}
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                lucide.createIcons();
+            }
+
+            renderZoneConfigs() {
+                const configList = document.getElementById('zoneConfigList');
+                if (!configList) return;
+
+                configList.innerHTML = '';
+                this.zones.slice(0, 6).forEach(zone => {
+                    configList.innerHTML += `
+                        <div class="p-3 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between text-xs">
+                            <div>
+                                <p class="font-bold text-white">Zone ${zone.id}: ${zone.name}</p>
+                                <p class="text-[10px] text-gray-400">Terminal Z${zone.id}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <select class="bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs text-gray-200 outline-none">
+                                    <option ${zone.setup === 'NC' ? 'selected' : ''}>NC (Normally Closed)</option>
+                                    <option ${zone.setup === 'NO' ? 'selected' : ''}>NO (Normally Open)</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            addLog(title, desc, type) {
+                this.logs.unshift({
+                    time: this.getFormattedTime(),
+                    title,
+                    desc,
+                    type
+                });
+                if (this.logs.length > 30) this.logs.pop();
+                this.renderLogs();
+            }
+
+            renderLogs() {
+                const logContainer = document.getElementById('logContainer');
+                if (!logContainer) return;
+
+                logContainer.innerHTML = '';
+                this.logs.forEach(log => {
+                    let colorClass = "text-blue-400 border-blue-500/30 bg-blue-500/10";
+                    let iconName = "info";
+
+                    if (log.type === 'warning') {
+                        colorClass = "text-amber-400 border-amber-500/30 bg-amber-500/10";
+                        iconName = "alert-circle";
+                    } else if (log.type === 'alarm') {
+                        colorClass = "text-red-400 border-red-500/40 bg-red-500/20";
+                        iconName = "alert-triangle";
+                    }
+
+                    logContainer.innerHTML += `
+                        <div class="flex items-start gap-3 p-2.5 rounded-2xl bg-white/5 border border-white/5 text-xs">
+                            <div class="w-7 h-7 rounded-xl flex items-center justify-center border ${colorClass} shrink-0 mt-0.5">
+                                <i data-lucide="${iconName}" class="w-3.5 h-3.5"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-center">
+                                    <h5 class="font-bold text-white truncate">${log.title}</h5>
+                                    <span class="text-[10px] text-gray-500 font-mono">${log.time}</span>
+                                </div>
+                                <p class="text-gray-400 text-[11px] mt-0.5">${log.desc}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                lucide.createIcons();
+            }
+
+            clearLogs() {
+                this.logs = [];
+                this.renderLogs();
+            }
+
+            // iOS Push Notification Banners
+            showNotification(title, message, iconName = 'bell') {
+                const container = document.getElementById('notificationContainer');
+                if (!container) return;
+
+                const notif = document.createElement('div');
+                notif.className = 'glass p-3 rounded-2xl border border-white/20 shadow-2xl flex items-start gap-3 transform -translate-y-4 opacity-0 transition-all duration-300 pointer-events-auto';
+                
+                notif.innerHTML = `
+                    <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                        <i data-lucide="${iconName}" class="w-4 h-4"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Konnected Pro</span>
+                            <span class="text-[10px] text-gray-500">now</span>
+                        </div>
+                        <h4 class="text-xs font-bold text-white">${title}</h4>
+                        <p class="text-[11px] text-gray-300 leading-snug">${message}</p>
+                    </div>
+                `;
+
+                container.appendChild(notif);
+                lucide.createIcons();
+
+                setTimeout(() => {
+                    notif.classList.remove('-translate-y-4', 'opacity-0');
+                }, 10);
+
+                setTimeout(() => {
+                    notif.classList.add('-translate-y-4', 'opacity-0');
+                    setTimeout(() => notif.remove(), 300);
+                }, 4000);
+            }
+
+            toggleDynamicIsland() {
+                const island = document.getElementById('dynamicIsland');
+                const islandText = document.getElementById('islandText');
+
+                if (island.classList.contains('px-3')) {
+                    island.classList.remove('px-3');
+                    island.classList.add('px-5', 'py-2');
+                    islandText.innerText = "Panel Status: 100% Operational";
+                } else {
+                    island.classList.remove('px-5', 'py-2');
+                    island.classList.add('px-3');
+                    islandText.innerText = "Konnected Pro • Online";
+                }
+            }
+
+            toggleDevicePowerModal() {
+                this.showNotification("Board Hardware Status", "12V AUX Power: Normal • PoE Class 0 • Temp: 34°C", "cpu");
+            }
+        }
+
+        // Initialize App Instance
+        let app;
+        window.onload = function() {
+            app = new KonnectedApp();
+            app.init();
+        };
+    </script>
+</body>
+</html>
