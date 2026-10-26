@@ -210,3 +210,322 @@
     </div>
     <div>
       <div class="banner-title">Security Alert</div>
+      <div id="bannerText" class="banner-desc">Zone Triggered</div>
+    </div>
+  </div>
+
+  <div class="header-bar">
+    <div class="dynamic-island">
+      <div class="status-dot disarmed" id="statusDot"></div>
+      <span class="dynamic-title" id="statusText">Disarmed</span>
+    </div>
+    <div class="header-right">
+      <div class="icon-btn" onclick="testSiren()" title="Test Siren">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="dashboardTab" class="tab-content active">
+      <div class="card status-hero">
+        <div class="status-shield disarmed" id="heroShield">
+          <svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        </div>
+        <div class="status-hero-state" id="heroState">System Disarmed</div>
+        <div class="status-hero-sub" id="heroSub">Konnected Alarm Panel Pro (192.168.86.39)</div>
+
+        <div class="mode-selector">
+          <div class="mode-btn active" onclick="setMode('disarmed')">Disarm</div>
+          <div class="mode-btn" onclick="requestPin('stay')">Arm Stay</div>
+          <div class="mode-btn" onclick="requestPin('away')">Arm Away</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Active Hardware Zones</div>
+        </div>
+        <div class="zones-grid" id="dashboardZones"></div>
+      </div>
+    </div>
+
+    <div id="zonesTab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Zone Simulator & Status</div>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Tap any active zone to simulate physical sensor state changes.</p>
+        <div class="zones-grid" id="allZones"></div>
+      </div>
+    </div>
+
+    <div id="relaysTab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Relays & Switched Outputs</div>
+        </div>
+        <div class="relay-list">
+          <div class="relay-item">
+            <div class="relay-info">
+              <div>
+                <div style="font-weight: 600;">Alarm Siren (ALARM)</div>
+                <div style="font-size: 12px; color: var(--text-muted);">12V High-Decibel Output</div>
+              </div>
+            </div>
+            <div class="toggle" id="relay-alarm" onclick="toggleRelay('alarm')"></div>
+          </div>
+          <div class="relay-item">
+            <div class="relay-info">
+              <div>
+                <div style="font-weight: 600;">Strobe Light (OUT1)</div>
+                <div style="font-size: 12px; color: var(--text-muted);">Auxiliary Strobe Output</div>
+              </div>
+            </div>
+            <div class="toggle" id="relay-out1" onclick="toggleRelay('out1')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Activity Log</div>
+        </div>
+        <div class="log-list" id="activityLog"></div>
+      </div>
+    </div>
+
+    <div id="settingsTab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Panel Hardware Settings</div>
+        </div>
+        <label style="font-size: 12px; color: var(--text-muted);">Board IP Address</label>
+        <input type="text" class="input-field" id="panelIpInput" value="192.168.86.39">
+
+        <label style="font-size: 12px; color: var(--text-muted);">API Port</label>
+        <input type="text" class="input-field" value="8080">
+
+        <button onclick="saveSettings()" style="width: 100%; padding: 14px; background: var(--accent-blue); border: none; border-radius: 12px; color: white; font-weight: 600; cursor: pointer;">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('dashboardTab', this)">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+      <span class="nav-label">Status</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('zonesTab', this)">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      <span class="nav-label">Zones</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('relaysTab', this)">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+      <span class="nav-label">Outputs</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('settingsTab', this)">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <span class="nav-label">Settings</span>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="pinModal">
+    <div class="keypad-modal">
+      <div style="font-size: 18px; font-weight: 600;">Security Code</div>
+      <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Enter PIN to arm/disarm</div>
+      <div class="keypad-dots">
+        <div class="dot" id="dot1"></div><div class="dot" id="dot2"></div><div class="dot" id="dot3"></div><div class="dot" id="dot4"></div>
+      </div>
+      <div class="keypad-grid">
+        <button class="keypad-btn" onclick="pressPin('1')">1</button>
+        <button class="keypad-btn" onclick="pressPin('2')">2</button>
+        <button class="keypad-btn" onclick="pressPin('3')">3</button>
+        <button class="keypad-btn" onclick="pressPin('4')">4</button>
+        <button class="keypad-btn" onclick="pressPin('5')">5</button>
+        <button class="keypad-btn" onclick="pressPin('6')">6</button>
+        <button class="keypad-btn" onclick="pressPin('7')">7</button>
+        <button class="keypad-btn" onclick="pressPin('8')">8</button>
+        <button class="keypad-btn" onclick="pressPin('9')">9</button>
+        <button class="keypad-btn" style="font-size: 14px;" onclick="closePin()">Cancel</button>
+        <button class="keypad-btn" onclick="pressPin('0')">0</button>
+        <button class="keypad-btn" style="font-size: 14px;" onclick="clearPin()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const zones = [
+      { id: 1, name: 'Front Door', type: 'door', active: true, triggered: false },
+      { id: 4, name: 'Back Door', type: 'door', active: true, triggered: false },
+      { id: 5, name: 'Basement Window', type: 'window', active: true, triggered: false },
+      { id: 6, name: 'Motion Detector', type: 'motion', active: true, triggered: false },
+      { id: 9, name: 'Garage Door', type: 'garage', active: true, triggered: false }
+    ];
+
+    let currentMode = 'disarmed';
+    let targetMode = '';
+    let enterPinStr = '';
+    const correctPin = '1234';
+
+    function renderZones() {
+      const dashContainer = document.getElementById('dashboardZones');
+      const allContainer = document.getElementById('allZones');
+      dashContainer.innerHTML = '';
+      allContainer.innerHTML = '';
+
+      zones.forEach(zone => {
+        const html = `
+          <div class="zone-tile ${zone.triggered ? 'triggered' : ''}" onclick="toggleZone(${zone.id})">
+            <div class="zone-header">
+              <span class="zone-badge">Zone ${zone.id}</span>
+            </div>
+            <div class="zone-name">${zone.name}</div>
+            <div class="zone-status">${zone.triggered ? 'OPEN / TRIGGERED' : 'Closed / Normal'}</div>
+          </div>
+        `;
+        dashContainer.innerHTML += html;
+        allContainer.innerHTML += html;
+      });
+    }
+
+    function toggleZone(id) {
+      const zone = zones.find(z => z.id === id);
+      if (zone) {
+        zone.triggered = !zone.triggered;
+        renderZones();
+        logEvent(`${zone.name} (Zone ${id}) state changed to ${zone.triggered ? 'OPEN' : 'CLOSED'}`);
+        if (zone.triggered) {
+          showBanner(`${zone.name} Triggered!`);
+          if (currentMode !== 'disarmed') {
+            triggerAlarm();
+          }
+        }
+      }
+    }
+
+    function switchTab(tabId, navEl) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      navEl.classList.add('active');
+    }
+
+    function requestPin(mode) {
+      targetMode = mode;
+      enterPinStr = '';
+      updateDots();
+      document.getElementById('pinModal').classList.add('open');
+    }
+
+    function pressPin(digit) {
+      if (enterPinStr.length < 4) {
+        enterPinStr += digit;
+        updateDots();
+        if (enterPinStr.length === 4) {
+          setTimeout(() => {
+            if (enterPinStr === correctPin) {
+              setMode(targetMode);
+              closePin();
+            } else {
+              alert('Incorrect PIN');
+              clearPin();
+            }
+          }, 100);
+        }
+      }
+    }
+
+    function clearPin() { enterPinStr = ''; updateDots(); }
+    function closePin() { document.getElementById('pinModal').classList.remove('open'); }
+    function updateDots() {
+      for (let i = 1; i <= 4; i++) {
+        const dot = document.getElementById(`dot${i}`);
+        if (i <= enterPinStr.length) dot.classList.add('filled');
+        else dot.classList.remove('filled');
+      }
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const shield = document.getElementById('heroShield');
+      const heroState = document.getElementById('heroState');
+      const btns = document.querySelectorAll('.mode-btn');
+
+      btns.forEach(b => b.classList.remove('active'));
+
+      if (mode === 'disarmed') {
+        dot.className = 'status-dot disarmed';
+        text.innerText = 'Disarmed';
+        shield.className = 'status-shield disarmed';
+        heroState.innerText = 'System Disarmed';
+        btns[0].classList.add('active');
+      } else if (mode === 'stay') {
+        dot.className = 'status-dot stay';
+        text.innerText = 'Armed Stay';
+        shield.className = 'status-shield stay';
+        heroState.innerText = 'Armed (Stay)';
+        btns[1].classList.add('active');
+      } else if (mode === 'away') {
+        dot.className = 'status-dot armed';
+        text.innerText = 'Armed Away';
+        shield.className = 'status-shield armed';
+        heroState.innerText = 'Armed (Away)';
+        btns[2].classList.add('active');
+      }
+      logEvent(`Alarm state changed to ${mode.toUpperCase()}`);
+    }
+
+    function toggleRelay(relay) {
+      const el = document.getElementById(`relay-${relay}`);
+      el.classList.toggle('active');
+      logEvent(`Output relay ${relay.toUpperCase()} toggled ${el.classList.contains('active') ? 'ON' : 'OFF'}`);
+    }
+
+    function logEvent(msg) {
+      const list = document.getElementById('activityLog');
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      list.innerHTML = `<div class="log-item"><span>${msg}</span><span class="log-time">${time}</span></div>` + list.innerHTML;
+    }
+
+    function showBanner(msg) {
+      const banner = document.getElementById('pushBanner');
+      document.getElementById('bannerText').innerText = msg;
+      banner.classList.add('show');
+      setTimeout(() => banner.classList.remove('show'), 3500);
+    }
+
+    function triggerAlarm() {
+      showBanner("ALARM TRIPPED! Intruders Detected!");
+      document.getElementById('relay-alarm').classList.add('active');
+      document.getElementById('relay-out1').classList.add('active');
+      testSiren();
+    }
+
+    function testSiren() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    }
+
+    function saveSettings() {
+      const ip = document.getElementById('panelIpInput').value;
+      document.getElementById('heroSub').innerText = `Konnected Alarm Panel Pro (${ip})`;
+      showBanner("Panel Settings Saved");
+    }
+
+    renderZones();
+    logEvent("Konnected board connected at 192.168.86.39");
+  </script>
+</body>
+</html>
